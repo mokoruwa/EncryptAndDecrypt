@@ -1,0 +1,224 @@
+using Chaos.NaCl;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace WindowsServiceAutoUpdate.Model
+{
+    public class Encryption
+    {
+        // For AES
+        public string GenerateKey()
+        {
+            using (var provider = new AesCryptoServiceProvider())
+            {
+                provider.GenerateKey();
+
+                var bytesKEY = provider.Key;
+                var base64KEY = Convert.ToBase64String(bytesKEY);
+                bytesKEY = Convert.FromBase64String(base64KEY);
+
+                var bytesIV = provider.IV;
+                var base64IV = Convert.ToBase64String(bytesIV);
+
+                return base64KEY;
+            }
+        }
+
+        // For AES
+        public string GenerateNonce()
+        {
+            using (var provider = new AesCryptoServiceProvider())
+            {
+                provider.GenerateKey();
+
+                var bytesIV = provider.IV;
+                var base64IV = Convert.ToBase64String(bytesIV);
+
+                return base64IV;
+            }
+        }
+
+        // For AES
+        public string Encrypt(string plainText, string KeyIn, string IVIn)
+        {
+
+            if (string.IsNullOrEmpty(plainText))
+            {
+                return "";
+            }
+
+            byte[] Key = Convert.FromBase64String(KeyIn);
+            byte[] IV = Convert.FromBase64String(IVIn);
+
+            // Check arguments.
+            if (plainText == null || plainText.Length <= 0)
+                throw new ArgumentNullException("plainText");
+            if (Key == null || Key.Length <= 0)
+                throw new ArgumentNullException("Key");
+            if (IV == null || IV.Length <= 0)
+                throw new ArgumentNullException("IV");
+            byte[] encrypted;
+            // Create an AesCryptoServiceProvider object
+            // with the specified key and IV.
+            using (AesCryptoServiceProvider aesAlg = new AesCryptoServiceProvider())
+            {
+                aesAlg.BlockSize = 128;  // 16 x 8 = 128
+                aesAlg.KeySize = 256; // 16 x 32
+
+                aesAlg.Key = Key;
+                aesAlg.IV = IV;
+
+                aesAlg.Mode = CipherMode.CBC;
+                aesAlg.Padding = PaddingMode.PKCS7;
+                //aesAlg.Padding = PaddingMode.None;
+
+                // Create a decrytor to perform the stream transform.
+                ICryptoTransform encryptor = aesAlg.CreateEncryptor(aesAlg.Key, aesAlg.IV);
+
+                // Create the streams used for encryption.
+                using (MemoryStream msEncrypt = new MemoryStream())
+                {
+                    using (CryptoStream csEncrypt = new CryptoStream(msEncrypt, encryptor, CryptoStreamMode.Write))
+                    {
+                        using (StreamWriter swEncrypt = new StreamWriter(csEncrypt))
+                        {
+
+                            //Write all data to the stream.
+                            swEncrypt.Write(plainText);
+                        }
+                        encrypted = msEncrypt.ToArray();
+                    }
+                }
+            }
+
+            // Return the encrypted bytes from the memory stream.
+            return Convert.ToBase64String(encrypted);
+        }
+
+        // For AES
+        public string Decrypt(string cipherTextIn, string KeyIn, string IVIn)
+        {
+            if (string.IsNullOrEmpty(cipherTextIn))
+            {
+                return "";
+            }
+
+            byte[] cipherText = Convert.FromBase64String(cipherTextIn);
+            byte[] Key = Convert.FromBase64String(KeyIn);
+            byte[] IV = Convert.FromBase64String(IVIn);
+
+            // Check arguments.
+            if (cipherText == null || cipherText.Length <= 0)
+                throw new ArgumentNullException("cipherText");
+            if (Key == null || Key.Length <= 0)
+                throw new ArgumentNullException("Key");
+            if (IV == null || IV.Length <= 0)
+                throw new ArgumentNullException("IV");
+
+            // Declare the string used to hold
+            // the decrypted text.
+            string plaintext = null;
+
+            // Create an AesCryptoServiceProvider object
+            // with the specified key and IV.
+            using (AesCryptoServiceProvider aesAlg = new AesCryptoServiceProvider())
+            {
+                aesAlg.BlockSize = 128;
+                aesAlg.KeySize = 256;
+
+                aesAlg.Key = Key;
+                aesAlg.IV = IV;
+
+                aesAlg.Mode = CipherMode.CBC;
+                aesAlg.Padding = PaddingMode.PKCS7;
+                //aesAlg.Padding = PaddingMode.None;
+
+                // Create a decrytor to perform the stream transform.
+                ICryptoTransform decryptor = aesAlg.CreateDecryptor(aesAlg.Key, aesAlg.IV);
+
+                // Create the streams used for decryption.
+                using (MemoryStream msDecrypt = new MemoryStream(cipherText))
+                {
+                    using (CryptoStream csDecrypt = new CryptoStream(msDecrypt, decryptor, CryptoStreamMode.Read))
+                    {
+                        using (StreamReader srDecrypt = new StreamReader(csDecrypt))
+                        {
+
+                            // Read the decrypted bytes from the decrypting stream
+                            // and place them in a string.
+                            plaintext = srDecrypt.ReadToEnd();
+                        }
+                    }
+                }
+            }
+            return plaintext;
+        }
+
+        /// <summary>
+        /// Decrypts the encrypted string using the key and nonce passed through the parameter
+        /// </summary>
+        /// <param name="input"></param>
+        /// <param name="key"></param>
+        /// <param name="nonce"></param>
+        /// <returns>Decrypted data</returns>
+        public string DecryptOld(
+            string input,
+            string key,
+            string nonce)
+        {
+            // Convert input text and password entered into byte arrays
+            // Get the bytes of the string
+            //byte[] bytesToBeDecrypted = Convert.FromBase64String(email);
+
+            try
+            {
+                if (string.IsNullOrEmpty(input))
+                {
+                    return null;
+                }
+
+                byte[] inputBytes = BytesFromHexaString(input);
+                byte[] keyBytes = BytesFromHexaString(key);
+                byte[] nonceBytes = BytesFromHexaString(nonce);
+
+                byte[] bytesDecrypted = XSalsa20Poly1305.TryDecrypt(inputBytes, keyBytes, nonceBytes);
+
+                string result = "";
+
+                if (bytesDecrypted != null)
+                {
+                    result = Encoding.UTF8.GetString(bytesDecrypted);
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+
+                throw;
+            }
+        }
+
+        public static string HexaStringFromBytes(byte[] bytes)
+        {
+            var sb = new StringBuilder();
+            foreach (byte b in bytes)
+            {
+                var hex = b.ToString("x2");
+                sb.Append(hex);
+            }
+            return sb.ToString().ToUpper();
+        }
+
+        public static byte[] BytesFromHexaString(string hexa)
+        {
+            return Enumerable.Range(0, hexa.Length / 2).Select(x => Convert.ToByte(hexa.Substring(x * 2, 2), 16)).ToArray();
+        }
+
+    }
+}
