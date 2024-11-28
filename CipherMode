@@ -1,0 +1,65 @@
+1. CipherMode.CBC (Cipher Block Chaining)
+Pros:
+
+Introduces feedback, ensuring that even identical plaintext blocks encrypt to different ciphertext blocks.
+Widely used and secure when implemented correctly.
+Suitable for encrypting structured data (e.g., files, messages).
+Cons:
+
+Requires an Initialization Vector (IV), which must be unique for each encryption session.
+Vulnerable to padding oracle attacks if padding and IVs are mishandled.
+Encryption and decryption are sequential, making it less performant for parallel processing.
+Best For: General-purpose encryption when data patterns need to be obscured and performance concerns are secondary.
+
+2. CipherMode.ECB (Electronic Codebook)
+Pros:
+
+Simple and fast.
+Easy to implement because it does not require an IV.
+Cons:
+
+Identical plaintext blocks produce identical ciphertext blocks, revealing patterns.
+Vulnerable to various attacks, such as block substitution and key recovery.
+Best For: Almost nothing. Avoid using ECB for most purposes because of its significant security weaknesses.
+
+3. CipherMode.OFB (Output Feedback)
+Pros:
+
+Converts the block cipher into a stream cipher, which processes data incrementally.
+Resistant to error propagation: if one bit of ciphertext is altered, only the corresponding bit of plaintext is affected.
+No padding is required.
+Cons:
+
+Requires a unique IV for security.
+Less commonly used than CBC or CTR, so it may have limited support or fewer optimizations.
+Best For: Streaming applications or scenarios where error resilience is essential.
+
+4. CipherMode.CFB (Cipher Feedback)
+Pros:
+
+Also converts the block cipher into a stream cipher, allowing encryption of small increments of data.
+Supports variable feedback sizes, providing flexibility.
+Secure for streaming and incremental data processing.
+Cons:
+
+Error propagation: if a bit in the ciphertext is altered, multiple plaintext bits may be corrupted.
+Performance is generally slower compared to OFB or CTR.
+Best For: Streaming applications or when flexibility in feedback size is necessary.
+
+5. CipherMode.CTS (Cipher Text Stealing)
+Pros:
+
+Allows encryption of plaintexts of any length without padding.
+Produces ciphertext that matches the plaintext length.
+Cons:
+
+Behavior differs for the last two blocks of data, which can complicate implementation.
+Less commonly supported compared to CBC or other standard modes.
+Best For: Encrypting data where maintaining exact ciphertext length is critical, such as in database fields or legacy systems.
+
+Which is "better"?
+Most Secure & Widely Used: CBC is the most commonly used and trusted mode when paired with good practices (unique IVs and secure padding).
+Streaming and Incremental Processing: Choose CFB or OFB if you need stream cipher-like behavior.
+Avoid: ECB, as it is insecure for almost all use cases.
+Specialized Use Cases: Use CTS if exact ciphertext length matching is required.
+For most general-purpose applications, CBC is a safe and effective choice. If high performance or parallelization is a priority, consider CTR mode (not listed here) or OFB.
